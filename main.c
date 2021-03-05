@@ -1,78 +1,154 @@
-/*!**********************************************************************************************************************
-@file main.c                                                                
-@brief Main system file for the ENCM 369 firmware.  
-***********************************************************************************************************************/
+/*!*********************************************************************************************************************
+@file user_app.c                                                                
+@brief User's tasks / applications are written here.  This description
+should be replaced by something specific to the task.
+
+------------------------------------------------------------------------------------------------------------------------
+GLOBALS
+- NONE
+
+CONSTANTS
+- NONE
+
+TYPES
+- NONE
+
+PUBLIC FUNCTIONS
+- NONE
+
+PROTECTED FUNCTIONS
+- void UserApp1Initialize(void)
+- void UserApp1Run(void)
+
+
+**********************************************************************************************************************/
 
 #include "configuration.h"
-
+#define _XTAL_FREQ 64000000                 // Fosc  frequency for _delay()  library
 
 /***********************************************************************************************************************
 Global variable definitions with scope across entire project.
-All Global variable names shall start with "G_"
+All Global variable names shall start with "G_<type>UserApp1"
 ***********************************************************************************************************************/
 /* New variables */
-volatile u32 G_u32SystemTime1ms = 0;     /*!< @brief Global system time incremented every ms, max 2^32 (~49 days) */
-volatile u32 G_u32SystemTime1s  = 0;     /*!< @brief Global system time incremented every second, max 2^32 (~136 years) */
-volatile u32 G_u32SystemFlags   = 0;     /*!< @brief Global system flags */
+volatile u8 G_u8UserAppFlags;                             /*!< @brief Global state flags */
+
 
 /*--------------------------------------------------------------------------------------------------------------------*/
-/* External global variables defined in other files (must indicate which file they are defined in) */
+/* Existing variables (defined in other files -- should all contain the "extern" keyword) */
+extern volatile u32 G_u32SystemTime1ms;                   /*!< @brief From main.c */
+extern volatile u32 G_u32SystemTime1s;                    /*!< @brief From main.c */
+extern volatile u32 G_u32SystemFlags;                     /*!< @brief From main.c */
 
 
 /***********************************************************************************************************************
 Global variable definitions with scope limited to this local application.
-Variable names shall start with "Main_" and be declared as static.
+Variable names shall start with "UserApp_<type>" and be declared as static.
 ***********************************************************************************************************************/
 
 
-/*!**********************************************************************************************************************
-@fn void main(void)
-@brief Main program where all tasks are initialized and executed.
+/**********************************************************************************************************************
+Function Definitions
+**********************************************************************************************************************/
 
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*! @publicsection */                                                                                            
+/*--------------------------------------------------------------------------------------------------------------------*/
 
-***********************************************************************************************************************/
+/*--------------------------------------------------------------------------------------------------------------------*/
+/*! @protectedsection */                                                                                            
+/*--------------------------------------------------------------------------------------------------------------------*/
 
-void main(void)
+/*!--------------------------------------------------------------------------------------------------------------------
+@fn void UserAppInitialize(void)
+
+@brief
+Initializes the application's variables.
+
+Should only be called once in main init section.
+
+Requires:
+- NONE
+
+Promises:
+- NONE
+
+*/
+void UserAppInitialize(void)
 {
-  G_u32SystemFlags |= _SYSTEM_INITIALIZING;
+    T0CON0 = 0x90;
+    T0CON1 = 0x54;
+    TMR0H = 0x00;
+    TMR0L = 0X00;
+    LATA = 0x00;
 
-  /* Low level initialization */
-  ClockSetup();
-  SysTickSetup();
-  GpioSetup();
+} /* end UserAppInitialize() */
+
   
-  /* Driver initialization */
- 
-  /* Application initialization */
-  UserAppInitialize();
-  
-  /* Exit initialization */
+/*!----------------------------------------------------------------------------------------------------------------------
+@fn void UserAppRun(void)
+
+@brief Application code that runs once per system loop
+
+Requires:
+- 
+
+Promises:
+- 
+
+*/
+void UserAppRun(void){
+
+    static int i = 0;
+    u8 u8Pattern[] = {0x05, 0x14, 0x28, 0x0A, 0x21, 0x0C};
     
-  /* Super loop */  
-  while(1)
-  {
-    /* Drivers */
-       
-    /* Applications */
-    UserAppRun();
-   
-     
-    /* System sleep */
-    HEARTBEAT_OFF();
-    SystemSleep();
-    TimeXus(0x3E8);
+    LATA = 0x80;
+    LATA = LATA | u8Pattern[i];
+    i += 1;
     
-    while((PIR3 & 0x80) != 0x80){ 
+    if(i == 6){
+        i = 0;
     }
-    HEARTBEAT_ON();
+ 
+} /* end UserAppRun */
+
+
+/*-------------------------------------------------------------------
+ * void TimeXus(INPUT_PARAMETER_)
+ * Sets Timer0 to count u16Microseconds_
+ * 
+ * Requires:
+ * -Timer0 configured such that each timer tick is 1 microsecond
+ * -INPUT_PARAMETER_is the value in microseconds to time from 1 to 65535
+ * 
+ * Promises:
+ * -Pre-loads TMR0H:L to clock out desired period-TMR0IF cleared
+ * -Timer0 enabled*/
+
+void TimeXus(u16 u16Timer)
+{
+
+    T0CON0 = T0CON0 & 0x7f;
+    TMR0H = (u16Timer & 0xff00) >> 8;
     
-  } /* end while(1) main super loop */
-  
-} /* end main() */
+    PIR3 = PIR3 & 0x7f;
+    T0CON0 = T0CON0 | 0x80;
+
+
+
+} /* end TimeXus () */
+
+
+
+
+/*------------------------------------------------------------------------------------------------------------------*/
+/*! @privatesection */                                                                                            
+/*--------------------------------------------------------------------------------------------------------------------*/
+
 
 
 
 
 /*--------------------------------------------------------------------------------------------------------------------*/
-/* End of File */
+/* End of File                                                                                                        */
 /*--------------------------------------------------------------------------------------------------------------------*/
